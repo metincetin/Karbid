@@ -1,6 +1,6 @@
 var karbid = {
     renderFile: function(url,element){
-      karbid.get(url,function(data){
+      karbid.utils.ajax.get(url,function(data){
         karbid.render(data,element);
       });
     },
@@ -63,7 +63,7 @@ var karbid = {
 
             if (line.startsWith("include")){
                 if(line.split(" ").length>1){
-                    karbid.get(line.split(" ")[1],function(data){
+                    karbid.utils.ajax.get(line.split(" ")[1],function(data){
                         karbid.render(data);
                     });
                 }
