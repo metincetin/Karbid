@@ -4,8 +4,29 @@ var karbid = {
         karbid.render(data,element);
       });
     },
-    elements:{}
-    ,
+    elements:{},
+    binder:function(){
+        this.duration = 50;
+        this.bindings = [];
+        this.interval = setInterval(function(){
+            for(this.i = 0;i<karbid.binder.bindings.length;this.i++){
+                this.binding = karbid.binder.bindings[i];
+
+                if(this.binding.attr.includes(".")){
+                    if (this.binding.attr.split(".")[0] == "style"){
+                        if(this.binding.element.style[this.binding.attr.split(".")[1]] != eval(this.binding.value))
+                            this.binding.element.style[this.binding.attr.split(".")[1]] = eval(this.binding.value);
+                    }
+                }else{
+                    if(this.binding.element[this.binding.attr] != eval(this.binding.value))
+                    this.binding.element[this.binding.attr] = eval(this.binding.value);
+                }
+
+
+
+            }
+        },200)
+    },
     render: function(code,curelem){
         var lines = code.split("\n");
         var inElements = [];
@@ -29,6 +50,8 @@ var karbid = {
         var inLoop = false;
         var loop = {};
 
+        var binding = false;
+
 
         var conditions = [{condition:true}];
         var conditionIndex=0;
@@ -39,7 +62,6 @@ var karbid = {
         }
         for (var a=0;a<lines.length;a++){
             var line = lines[a].trim();
-
             //conditionals
             if (conditions[conditions.length-1].condition == false){
                 if(line.startsWith("endif")){
@@ -59,6 +81,7 @@ var karbid = {
             }
             if (line.startsWith ("</sc")){
                 pass = false;
+                continue
             }
 
             if (line.startsWith("include")){
@@ -83,7 +106,6 @@ var karbid = {
                     if (argsObj.url.startsWith("(")){
                         argsObj.url = replaceAt(argsObj.url,argsObj.url.length-1,"");
                         argsObj.url = replaceAt(argsObj.url,0,"");
-                        console.log(argsObj.url);
 
                         argsObj.url = eval(args[1]);
                     }
@@ -96,10 +118,18 @@ var karbid = {
                             window[argsObj.variable]=xmlHttp.responseText;
                     }
                     xmlHttp.open(argsObj.method, argsObj.url, false);
-                    console.log(argsObj);
                     xmlHttp.send(null);
                 }
             }
+
+            //binding
+            if (line.startsWith("!")){
+                if(curAttribute == "" && curEvent == ""){
+                    binding = true;
+                    line = karbid.utils.replaceAt(line,0,""); //removing the !
+                }
+            }
+
 
             if(line[0]=="@" && curAttribute == "" &&curEvent == ""){
                 //this is an element
@@ -123,6 +153,7 @@ var karbid = {
                     element.id = "elem_"+elementsCount;
                 }
 
+
                 //loop
                 if(curElement.inLoop == false && element.loop!=undefined){
                     //a loop that hasn't started yet
@@ -144,7 +175,6 @@ var karbid = {
                     if(element.loop.type == "foreach"){
                         curElement.element[element.loop.name]=element.loop.array[curElement.loop.index];
                     }else{
-                        console.log(element.loop.name);
                         curElement.element[element.loop.name] = curElement.loop.index;
                     }
 
@@ -163,11 +193,11 @@ var karbid = {
                 curElement.element.appendChild(htmlElement);
 
                 if(curElement.inLoop){
-                        htmlElement.setAttribute(element.loop.name,curElement.element[element.loop.name]);
+                    //htmlElement.setAttribute(element.loop.name,curElement.element[element.loop.name]);
+                    htmlElement[element.loop.name] = curElement.element[element.loop.name]
                 }
                 var objectElement = {element:htmlElement,parent:curElement,elements:[],inLoop:false,html:""};
                 curElement.elements.push(objectElement);
-                console.log(curElement.elements);
 
                 curElement = objectElement;
 
@@ -183,7 +213,7 @@ var karbid = {
                 if (element.tag == "body"){
                     htmlElement=document.body;
                 }
-                
+
 
             }
 
@@ -196,7 +226,6 @@ var karbid = {
                     var le = curElement;
                     curElement = curElement.parent;
                     if(curElement.inLoop == true){
-                        console.log(le);
                         if(curElement.loop.endingLine==undefined){
                             curElement.loop.endingLine=a;
                         }
@@ -205,7 +234,6 @@ var karbid = {
                             if(curElement.loop.type == "foreach"){
                                 le.element[curElement.loop.name]=curElement.loop.array[curElement.loop.index];
                             }else{
-                                console.log(le.element);
                                 le.element[curElement.loop.name] = curElement.loop.index;
                             }
                             a = curElement.loop.startingLine-1;
@@ -243,7 +271,10 @@ var karbid = {
                         }
                         else{
                             curElement.element.setAttribute(curAttribute,attrValue);
-
+                        }
+                        if (binding){
+                            karbid.binder.bindings.push({element:curElement.element,attr:curAttribute,value:attrValue})
+                            binding = false;
                         }
                         curAttribute ="";
                         attrValue = "";
@@ -259,8 +290,28 @@ var karbid = {
                 if(line[("attr-"+curAttribute+":").length+1]!="{"){
                     attrValue = line.split("attr-"+curAttribute)[1].split(":")[1];
                     curElement.element.setAttribute(curAttribute,eval(attrValue));
+
+                    if (binding){
+                        karbid.binder.bindings.push({element:curElement.element,attr:curAttribute,value:attrValue})
+                        binding = false;
+                    }
+
                     attrValue = "";
                     curAttribute = "";
+                }
+            }
+
+            //binding for innerHTML
+            if(line.startsWith("html:")){
+                if (curAttribute=="" && curEvent == ""){ //making sure that we are not inside any attribute or event
+                    attrValue = line.split("html:")[1];
+
+                    if (binding){
+                        karbid.binder.bindings.push({element:curElement.element,attr:"innerHTML",value:attrValue})
+                        binding = false;
+                    }
+                    attrValue = "";
+
                 }
             }
 
@@ -273,7 +324,7 @@ var karbid = {
                     }else
                     //curElement.element.setAttribute("on"+curEvent,eventCode);
                     curElement.element.addEventListener(curEvent,new Function("ev",eventCode));
-                    
+
                     curEvent ="";
                     eventCode = "";
                     }
@@ -288,7 +339,6 @@ var karbid = {
                 //koşullar
                 if (line.startsWith("if")){
                     conditions.push({code:line.split("if")[1].trim(),condition:eval(line.split("if")[1].trim())});
-                    console.log(line.split("if")[1].trim());
                 }
                 if (line.startsWith("elif")){
                     var con = !eval(conditions[conditions.length-1].code);
@@ -306,7 +356,7 @@ var karbid = {
                         curElement.element.innerHTML = line;
                     }else{
                         curElement.html =  line.split("html")[1].substr(line.split("html")[1].indexOf(":")+1);
-                         
+
                     }
                 }
 
@@ -335,8 +385,16 @@ var karbid = {
                     if(!line.startsWith("placeholder:{")){
                         attrValue = line.substr(curAttribute.length+1);
                         curElement.element.setAttribute(curAttribute,eval(attrValue));
+
+                        if (binding){
+                            karbid.binder.bindings.push({element:curElement.element,attr:curAttribute,value:attrValue})
+                            binding = false;
+                        }
+
                         curAttribute = "";
                         attrValue = "";
+
+
                     }
                 }
                 if(line.startsWith("click:")){
@@ -344,18 +402,46 @@ var karbid = {
                 }
                 if(line.startsWith("width:")){
                     curElement.element.style["width"] = eval(line.split("width:")[1]);
+
+                    if (binding){
+                        karbid.binder.bindings.push({element:curElement.element,attr:"style.width",value:line.split("width:")[1]})
+                        binding = false;
+                    }
                 }
                 if(line.startsWith("height:")){
                     curElement.element.style["height"] = eval(line.split("height:")[1]);
+
+                    if (binding){
+                        karbid.binder.bindings.push({element:curElement.element,attr:"style.height",value:line.split("height:")[1]})
+                        binding = false;
+                    }
+
                 }
                 if(line.startsWith("border:")){
                     curElement.element.style["border"] = eval(line.split("border:")[1]);
+
+                    if (binding){
+                        karbid.binder.bindings.push({element:curElement.element,attr:"style.border",value:line.split("border:")[1]})
+                        binding = false;
+                    }
                 }
                 if(line.startsWith("background-color:")){
                     curElement.element.style["background-color"] = eval(line.split("background-color:")[1]);
+
+                    if (binding){
+                        karbid.binder.bindings.push({element:curElement.element,attr:"style.backgroundColor",value:line.split("background-color:")[1]})
+                        binding = false;
+                    }
                 }
                 if(line.startsWith("style.")){
                     curElement.element.style[line.split("style.")[1].split(":")[0].trim()] = eval(line.split("style.")[1].split(":")[1]);
+
+
+                    if (binding){
+                        karbid.binder.bindings.push({element:curElement.element,attr:"style."+line.split("style.")[1].split(":")[0].trim(),value:line.split("style.")[1].split(":")[1]})
+                        binding = false;
+                    }
+
                 }
                 if(line.startsWith("input:")){
                     curEvent = "input";
@@ -389,14 +475,13 @@ var karbid = {
         },
         queryConverter: function(query) {
             var element = {id:"",tag:"",class:""};
-            element.important = false;
 
 
             //loop
             if(query.includes(":") && query.includes("(") && query.includes(")")){ //checking if it contains loop
                 var name = query.split(":")[0].split("(")[1];
-                var to = eval(karbid.utils.replaceAt(query.split(name+":")[1].split("{")[0],query.split(name+":")[1].split("{")[0].length-1,""));
-                to = eval(to);
+                var to = eval(karbid.utils.replaceAt(query.substr(query.indexOf(":")+1),query.substr(query.indexOf(":")+1).length-1,""))
+                //var to = eval(karbid.utils.replaceAt(query.split(name+":")[1].split("{")[0],query.split(name+":")[1].split("{")[0].length-1,""));
                 var array = new Array();
                 var type = "";
                 if(to.constructor === Array){
@@ -413,7 +498,8 @@ var karbid = {
                     name:name,
                     to:to,
                     array:array,
-                    index:0
+                    index:0,
+                    binding:true
                 }
                 query = query.split(":")[0].split("(")[0];
             }
@@ -457,7 +543,7 @@ var karbid = {
                     if (xmlHttp.readyState == 4 && xmlHttp.status == 200)
                         callback(xmlHttp.responseText);
                 }
-                xmlHttp.open("POST", theUrl, false); 
+                xmlHttp.open("POST", theUrl, false);
                 xmlHttp.send(null);
             }
         }
@@ -465,3 +551,5 @@ var karbid = {
 }
 
 var init = new Event("init");
+
+karbid.binder = new karbid.binder()
