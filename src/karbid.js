@@ -33,6 +33,8 @@ var karbid = {
         var curElement={};
 
         var pass = false;
+        evalScript = false;
+        evalScriptCode = "";
 
         if (curelem!=undefined){
             inElements.push({element:curelem,parent:{},elements:[],inLoop: false});
@@ -76,12 +78,10 @@ var karbid = {
                 continue;
             }
 
-            if (line.startsWith("<script")){
-                pass = true;
-            }
-            if (line.startsWith ("</sc")){
-                pass = false;
-                continue
+            if(evalScript == true){
+                if(line.endsWith("endscript") == false)
+                evalScriptCode += line;
+
             }
 
             if (line.startsWith("include")){
@@ -182,6 +182,7 @@ var karbid = {
 
 
                 //create the element
+                console.log(element)
                 htmlElement = document.createElement(element.tag);
                 htmlElement.addEventListener("init",function(){
                     if(curElement.html != ""){
@@ -360,6 +361,21 @@ var karbid = {
                     }
                 }
 
+                //script
+                if (line.startsWith ("script")){
+                    evalScript = true;
+                }
+
+                if(line.endsWith("endscript") || line.startsWith("endscript")){
+                    evalScript = false;
+                    var sT = document.createElement("script");
+                    var sP = document.createTextNode(evalScriptCode);
+                    sT.appendChild(sP)
+                    document.body.appendChild(sT);
+                    evalScriptCode = "";
+                    continue;
+                }
+
                 if(line.startsWith("ev-")){
                     curEvent = line.split("ev-")[1].split(":")[0];
                 }
@@ -510,6 +526,8 @@ var karbid = {
                 if(query[i] == "#") splitter = "#";
 
                 if(query[i] == ".") {splitter=".";}
+                if(query[i] == "{") {break;}
+
 
                 if (splitter==""){
                     element.tag+=query[i];

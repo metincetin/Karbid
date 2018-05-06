@@ -1,0 +1,19 @@
+{
+  "name": "karbid",
+  "version": "1.1.2",
+  "description": "A markup language that talks with css and javascript.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/metincetin/karbid.git"
+  },
+  "author": "Metin ÇETİN <metinc309@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/metincetin/karbid/issues"
+  },
+  "homepage": "https://github.com/metincetin/karbid#readme"
+}

@@ -4,6 +4,20 @@ A markup language that talks with css and javascript.
 
 ## Installation
 
+### npm
+
+Install the package with npm
+
+```
+npm install karbid
+```
+
+
+[Using karbid with node apps](https://github.com/metincetin/Karbid/wiki/npm-installation-and-usage)
+
+
+### Direct Installation
+
 Clone this repository and add the script to your project
 
 ```html
@@ -19,7 +33,7 @@ karbid.render(code);
 or you can render a remote karbid (.kd) file
 
 ```javascript
-karbid.renderFile(url-to-kd-file);
+karbid.renderFile("pathToKarbidFile.kd");
 ```
 
 ## Documentation
