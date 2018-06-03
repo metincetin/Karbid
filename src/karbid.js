@@ -92,7 +92,7 @@ var karbid = {
                 }
             }
 
-            //webrequest entegration
+            //webrequest
             if(line.startsWith("request")){
                 var args = line.split("request ")[1].split(" ");
                 var argsObj={};
@@ -173,17 +173,21 @@ var karbid = {
                 }
                 if(curElement.inLoop){
                     if(element.loop.type == "foreach"){
-                        curElement.element[element.loop.name]=element.loop.array[curElement.loop.index];
+                        curElement.element[element.loop.name] = element.loop.array[curElement.loop.index];
                     }else{
                         curElement.element[element.loop.name] = curElement.loop.index;
                     }
-
                 }
 
 
                 //create the element
-                console.log(element)
                 htmlElement = document.createElement(element.tag);
+
+                if(curElement.inLoop){
+                    //htmlElement.setAttribute(element.loop.name,curElement.element[element.loop.name]);
+                    htmlElement[element.loop.name] = curElement.element[element.loop.name];
+                }
+
                 htmlElement.addEventListener("init",function(){
                     if(curElement.html != ""){
                         var text = document.createElement("text");
@@ -193,10 +197,7 @@ var karbid = {
                 });
                 curElement.element.appendChild(htmlElement);
 
-                if(curElement.inLoop){
-                    //htmlElement.setAttribute(element.loop.name,curElement.element[element.loop.name]);
-                    htmlElement[element.loop.name] = curElement.element[element.loop.name]
-                }
+
                 var objectElement = {element:htmlElement,parent:curElement,elements:[],inLoop:false,html:""};
                 curElement.elements.push(objectElement);
 
@@ -233,9 +234,9 @@ var karbid = {
                         if(curElement.loop.index<curElement.loop.to){
                             curElement.loop.index++;
                             if(curElement.loop.type == "foreach"){
-                                le.element[curElement.loop.name]=curElement.loop.array[curElement.loop.index];
+                                le.element[curElement.loop.name]=curElement.loop.array[curElement.loop.index-1];
                             }else{
-                                le.element[curElement.loop.name] = curElement.loop.index;
+                                le.element[curElement.loop.name] = curElement.loop.index-1;
                             }
                             a = curElement.loop.startingLine-1;
                         }else{
@@ -339,14 +340,17 @@ var karbid = {
 
                 //koşullar
                 if (line.startsWith("if")){
-                    conditions.push({code:line.split("if")[1].trim(),condition:eval(line.split("if")[1].trim())});
+
+
+
+                    conditions.push({code:line.split("if")[1].trim(),condition:function(){ return eval(line.split("if")[1].trim())}.call(curElement.element)});
                 }
                 if (line.startsWith("elif")){
                     var con = !eval(conditions[conditions.length-1].code);
-                    conditions.push({code:line.split("elif")[1].trim(),condition:eval(line.split("elif")[1].trim()+" && "+con)});
+                    conditions.push({code:line.split("elif")[1].trim(),condition:function(){return eval(line.split("elif")[1].trim()+" && "+con)}.call(curElement.element)});
                 }
                 if(line.startsWith("else")){
-                    var con = eval(conditions[conditions.length-1].code);
+                    var con = function(){return eval(conditions[conditions.length-1].code)}.call(curElement.element);
                     conditions.push({code:"",condition:!con});
                 }
 
@@ -379,8 +383,7 @@ var karbid = {
                 if(line.startsWith("ev-")){
                     curEvent = line.split("ev-")[1].split(":")[0];
                 }
-
-                //some attributes and events
+                //#region some attributes and events
                 if(line.startsWith("style:")){
                     curAttribute = "style";
                 }
@@ -462,6 +465,7 @@ var karbid = {
                 if(line.startsWith("input:")){
                     curEvent = "input";
                 }
+                //#endregion
 
             }
         }
