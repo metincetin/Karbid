@@ -37,7 +37,7 @@ var karbid = {
         evalScriptCode = "";
 
         if (curelem!=undefined){
-            inElements.push({element:curelem,parent:{},elements:[],inLoop: false});
+            inElements.push({element:curelem,parent:{},elements:[],inLoop: false,queryElement:{}});
             curElement = inElements[0];
         }
         elementsCount = 100;
@@ -59,7 +59,7 @@ var karbid = {
         var conditionIndex=0;
 
         if (inElements.length == 0){
-            inElements.push({element:document.body,parent:{},elements:[],inLoop: false,html:""});
+            inElements.push({element:document.body,parent:{},elements:[],inLoop: false,html:"",queryElement:{}});
             curElement = inElements[0];
         }
         for (var a=0;a<lines.length;a++){
@@ -145,7 +145,6 @@ var karbid = {
 
 
                 var element = karbid.utils.queryConverter(line);
-
                 if(element.tag=="" || element.tag ==""){
                     element.tag="div";
                 }
@@ -188,11 +187,18 @@ var karbid = {
                     htmlElement[element.loop.name] = curElement.element[element.loop.name];
                 }
 
+                //if parent is in loop, we assign its value to this
+                if (curElement.parent.loop != undefined || curElement.parent.parentInLoop){
+                        curElement.parent.parentInLoop=true;
+                        curElement.loop = curElement.parent.loop
+                        htmlElement[curElement.parent.loop.name] = curElement.parent.element[curElement.parent.loop.name]
+                }
+
                 htmlElement.addEventListener("init",function(){
                     if(curElement.html != ""){
                         var text = document.createElement("text");
                         text.innerHTML = eval(curElement.html);
-                        this.insertBefore(text,this.firstChild);
+                        this.insertBefore(text,this.childNodes[curElement.htmlBefore]);
                     }
                 });
                 curElement.element.appendChild(htmlElement);
@@ -202,6 +208,7 @@ var karbid = {
                 curElement.elements.push(objectElement);
 
                 curElement = objectElement;
+                curElement.queryElement = element;
 
                 elementsCount++;
 
@@ -361,6 +368,7 @@ var karbid = {
                         curElement.element.innerHTML = line;
                     }else{
                         curElement.html =  line.split("html")[1].substr(line.split("html")[1].indexOf(":")+1);
+                        curElement.htmlBefore = curElement.elements.length;
 
                     }
                 }
