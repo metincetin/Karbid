@@ -14,12 +14,12 @@ var karbid = {
 
                 if(this.binding.attr.includes(".")){
                     if (this.binding.attr.split(".")[0] == "style"){
-                        if(this.binding.element.style[this.binding.attr.split(".")[1]] != eval(this.binding.value))
-                            this.binding.element.style[this.binding.attr.split(".")[1]] = eval(this.binding.value);
+                        if(this.binding.element.style[this.binding.attr.split(".")[1]] != (function(){return eval(this.binding.value)}).call(this.binding.element))
+                            this.binding.element.style[this.binding.attr.split(".")[1]] = (function(){return eval(this.binding.value)}).call(this.binding.element);
                     }
                 }else{
-                    if(this.binding.element[this.binding.attr] != eval(this.binding.value))
-                    this.binding.element[this.binding.attr] = eval(this.binding.value);
+                    if(this.binding.element[this.binding.attr] != (function(){return eval(this.binding.value)}).call(this.binding.element))
+                    this.binding.element[this.binding.attr] = (function(){return eval(this.binding.value)}).call(this.binding.element);
                 }
 
 
@@ -269,14 +269,15 @@ var karbid = {
                         }
                         if(curAttribute != "style"){
                             if(curAttribute == "stylejs"){
-                                var style = eval('({'+attrValue+'})');
+                            
+                                var style = (function(){return eval('({'+attrValue+'})')}).call(curElement.element);
 
                                 for(var i=0;i<Object.keys(style).length;i++){
                                     var key = Object.keys(style)[i];
                                     curElement.element.style[key] = style[key];
                                 }
                             }else
-                            curElement.element.setAttribute(curAttribute,eval(attrValue));
+                            curElement.element.setAttribute(curAttribute,(function(){return eval(attrValue)}).call(curElement.element));
                         }
                         else{
                             curElement.element.setAttribute(curAttribute,attrValue);
@@ -298,7 +299,7 @@ var karbid = {
                 curAttribute = line.split("attr-")[1].split(":")[0];
                 if(line[("attr-"+curAttribute+":").length+1]!="{"){
                     attrValue = line.split("attr-"+curAttribute)[1].split(":")[1];
-                    curElement.element.setAttribute(curAttribute,eval(attrValue));
+                    curElement.element.setAttribute(curAttribute,(function(){return eval(attrValue)}).call(curElement.element));
 
                     if (binding){
                         karbid.binder.bindings.push({element:curElement.element,attr:curAttribute,value:attrValue})
@@ -347,8 +348,6 @@ var karbid = {
 
                 //koşullar
                 if (line.startsWith("if")){
-
-
 
                     conditions.push({code:line.split("if")[1].trim(),condition:function(){ return eval(line.split("if")[1].trim())}.call(curElement.element)});
                 }
@@ -402,7 +401,7 @@ var karbid = {
                     curAttribute="type";
                     if(!line.startsWith("type:{")){
                         attrValue = line.substr(curAttribute.length+1);
-                        curElement.element.setAttribute(curAttribute,eval(attrValue));
+                        curElement.element.setAttribute(curAttribute,(function(){return eval(attrValue)}).call(curElement.element));
                         curAttribute = "";
                         attrValue = "";
                     }
@@ -411,7 +410,7 @@ var karbid = {
                     curAttribute = "placeholder";
                     if(!line.startsWith("placeholder:{")){
                         attrValue = line.substr(curAttribute.length+1);
-                        curElement.element.setAttribute(curAttribute,eval(attrValue));
+                        curElement.element.setAttribute(curAttribute,(function(){return eval(attrValue)}).call(curElement.element));
 
                         if (binding){
                             karbid.binder.bindings.push({element:curElement.element,attr:curAttribute,value:attrValue})
@@ -428,7 +427,7 @@ var karbid = {
                     curEvent = "click";
                 }
                 if(line.startsWith("width:")){
-                    curElement.element.style["width"] = eval(line.split("width:")[1]);
+                    curElement.element.style["width"] = (function(){return eval(line.split("width:")[1])}).call(curElement.element);
 
                     if (binding){
                         karbid.binder.bindings.push({element:curElement.element,attr:"style.width",value:line.split("width:")[1]})
@@ -436,7 +435,9 @@ var karbid = {
                     }
                 }
                 if(line.startsWith("height:")){
-                    curElement.element.style["height"] = eval(line.split("height:")[1]);
+
+
+                    curElement.element.style["height"] = (function(){return eval(line.split("height:")[1])}).call(curElement.element);
 
                     if (binding){
                         karbid.binder.bindings.push({element:curElement.element,attr:"style.height",value:line.split("height:")[1]})
@@ -445,7 +446,7 @@ var karbid = {
 
                 }
                 if(line.startsWith("border:")){
-                    curElement.element.style["border"] = eval(line.split("border:")[1]);
+                    curElement.element.style["border"] = (function(){return eval(line.split("border:")[1])}).call(curElement.element);
 
                     if (binding){
                         karbid.binder.bindings.push({element:curElement.element,attr:"style.border",value:line.split("border:")[1]})
@@ -453,7 +454,7 @@ var karbid = {
                     }
                 }
                 if(line.startsWith("background-color:")){
-                    curElement.element.style["background-color"] = eval(line.split("background-color:")[1]);
+                    curElement.element.style["background-color"] = (function(){return eval(line.split("background-color:")[1])}).call(curElement.element);
 
                     if (binding){
                         karbid.binder.bindings.push({element:curElement.element,attr:"style.backgroundColor",value:line.split("background-color:")[1]})
@@ -461,7 +462,7 @@ var karbid = {
                     }
                 }
                 if(line.startsWith("style.")){
-                    curElement.element.style[line.split("style.")[1].split(":")[0].trim()] = eval(line.split("style.")[1].split(":")[1]);
+                    curElement.element.style[line.split("style.")[1].split(":")[0].trim()] = (function(){return eval(line.split("style.")[1].split(":")[1])}).call(curElement.element);
 
 
                     if (binding){

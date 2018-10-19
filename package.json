@@ -1,6 +1,6 @@
 {
   "name": "karbid",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "A markup language that talks with css and javascript.",
   "main": "index.js",
   "scripts": {
