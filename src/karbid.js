@@ -5,6 +5,7 @@ var karbid = {
       });
     },
     elements:{},
+    regions:{},
     binder:function(){
         this.duration = 50;
         this.bindings = [];
@@ -53,8 +54,10 @@ var karbid = {
         var loop = {};
 
         var binding = false;
+        var passLoop = false;
 
-
+        var inRegion = false;
+        var currentRegion = {}
         var conditions = [{condition:true}];
         var conditionIndex=0;
 
@@ -84,6 +87,25 @@ var karbid = {
 
             }
 
+            if (line.endsWith("endregion")){
+                inRegion = false;
+                currentRegion = ""
+            }
+
+            if (line.startsWith("region ")){
+                inRegion = true;
+                currentRegion = line.split("region ")[1]
+                karbid.regions[currentRegion] = {code:"",parent:curElement.element,render:function(){
+                    karbid.render(this.code,this.parent)
+                }}
+            }else{
+                if (inRegion){
+                    karbid.regions[currentRegion].code += line+"\n";
+                    continue;
+                }
+            }
+            
+
             if (line.startsWith("include")){
                 if(line.split(" ").length>1){
                     karbid.utils.ajax.get(line.split(" ")[1],function(data){
@@ -92,6 +114,15 @@ var karbid = {
                 }
             }
 
+            //comment line with // or the line starts with #
+            if (line.startsWith("#")) continue
+            var reg = /(^|[^\\])#.*/g;
+            if (line.match(reg) != null && line.match(reg).length>0){
+                line.match(reg).forEach(function(element){
+                    line = line.replace(element,"")
+                });
+            }
+            
             //webrequest
             if(line.startsWith("request")){
                 var args = line.split("request ")[1].split(" ");
@@ -153,6 +184,13 @@ var karbid = {
                 }
 
 
+                //this should fix foreach loops' trying to render with empty arrays
+                if (element.loop != undefined && element.loop.type == "foreach" && element.loop.array.length==0){
+                    console.log(element)
+                    passLoop = true;
+                    continue;
+                }
+
                 //loop
                 if(curElement.inLoop == false && element.loop!=undefined){
                     //a loop that hasn't started yet
@@ -178,7 +216,6 @@ var karbid = {
                     }
                 }
 
-
                 //create the element
                 htmlElement = document.createElement(element.tag);
 
@@ -186,7 +223,6 @@ var karbid = {
                     //htmlElement.setAttribute(element.loop.name,curElement.element[element.loop.name]);
                     htmlElement[element.loop.name] = curElement.element[element.loop.name];
                 }
-
                 //if parent is in loop, we assign its value to this
                 if (curElement.parent.loop != undefined || curElement.parent.parentInLoop){
                         curElement.parent.parentInLoop=true;
@@ -201,6 +237,14 @@ var karbid = {
                         this.insertBefore(text,this.childNodes[curElement.htmlBefore]);
                     }
                 });
+
+                //adding attributes
+
+                element.attributes.forEach(function(attribute){
+                    htmlElement[attribute.name] = (function(){return eval(attribute.value)}).call(htmlElement);
+                })
+                console.log(element)
+
                 curElement.element.appendChild(htmlElement);
 
 
@@ -227,9 +271,12 @@ var karbid = {
             }
 
 
-
             //end of the code
             if(line.endsWith("}") && bracketCount == 0){
+                if (passLoop == true){
+                    passLoop = false;
+                    continue;
+                }
                 if(curAttribute == "" && curEvent == ""){
                     curElement.element.dispatchEvent(init);
                     var le = curElement;
@@ -254,6 +301,8 @@ var karbid = {
                 }
 
             }
+
+            if (passLoop) continue;
 
 
             if(curAttribute!=""){
@@ -394,6 +443,14 @@ var karbid = {
                 if(line.startsWith("style:")){
                     curAttribute = "style";
                 }
+                if(line.startsWith("value:")){
+                    curAttribute = "value";
+                    attrValue = line.substr(curAttribute.length+1);
+                    curElement.element.setAttribute(curAttribute,(function(){return eval(attrValue)}).call(curElement.element));
+                    curAttribute = "";
+                    attrValue = "";
+
+                }
                 if(line.startsWith("stylejs")){
                     curAttribute = "stylejs";
                 }
@@ -503,7 +560,7 @@ var karbid = {
             }
         },
         queryConverter: function(query) {
-            var element = {id:"",tag:"",class:""};
+            var element = {id:"",tag:"",class:"",attributes:[]};
 
 
             //loop
@@ -534,11 +591,18 @@ var karbid = {
             }
 
             var splitter = "";
+            curAttr = {name:"",value:""};
             for(var i=0;i<query.length;i++){
 
-                if(query[i] == "#") splitter = "#";
-
-                if(query[i] == ".") {splitter=".";}
+                // if we are not editing the attributes, then converter can look for  id and classnames
+                if (splitter!="=" && splitter != "["){
+                    if(query[i] == "#") splitter = "#";
+                    if(query[i] == ".") {splitter=".";}
+                }
+                if (query[i] == "[") {query = karbid.utils.replaceAt(query,i,"");splitter = "[";element.attributes.push({name:"",value:""});}
+                if (query[i] == "=") {query = karbid.utils.replaceAt(query,i,"");splitter = "=";}
+                if (query[i] == "]") splitter = "]";
+                if (query[i] == ",") {splitter = ",";element.attributes.push({name:"",value:""});};
                 if(query[i] == "{") {break;}
 
 
@@ -551,9 +615,23 @@ var karbid = {
                 if(splitter == "#"){
                     element.id+=query[i].replace("#","");
                 }
+            
+                //attributes
+                if (splitter == "["){
+                    element.attributes[element.attributes.length-1].name +=query[i];
+                }
+                if (splitter == "="){
+                    element.attributes[element.attributes.length-1].value += query[i];
+                }
+                if (splitter == "]" || splitter==","){
+                    /*console.log(curAttr)
+                    element.attributes[element.attributes.length-1].name = karbid.utils.replaceAt(curAttr.name,0,"");
+                    element.attributes[element.attributes.length-1].value = karbid.utils.replaceAt(curAttr.value,0,"");
+                    */
+                    if (splitter ==",") splitter = "["; 
+                }
             }
             element.class = karbid.utils.replaceAt(element.class,0,"");
-
             return element;
         },
         ajax:{
