@@ -7,20 +7,50 @@ var karbid = {
     elements:{},
     regions:{},
     binder:function(){
+        this.BindingType = {ATTRBINDING:0,LOOPBINDING:1}
         this.duration = 50;
         this.bindings = [];
-        this.interval = setInterval(function(){
-            for(this.i = 0;i<karbid.binder.bindings.length;this.i++){
-                this.binding = karbid.binder.bindings[i];
+        this.interval = setInterval(()=>{
+            var hebele = 0;
+            
+            for(var i = 0;i<karbid.binder.bindings.length;i++){
+                var binding = karbid.binder.bindings[i];
+                if (binding.type == karbid.binder.BindingType.LOOPBINDING){
+                    //value:            current array value
+                    //previousValue:    value before changed
+                    //karbidCode:       code to be rendered
+                    //element:          karbid code rendered to (parent of the loop)
+                    //before:           element position that the element will be added to
+                    //i:                identifier id for elements created by the loop
 
-                if(this.binding.attr.includes(".")){
-                    if (this.binding.attr.split(".")[0] == "style"){
-                        if(this.binding.element.style[this.binding.attr.split(".")[1]] != (function(){return eval(this.binding.value)}).call(this.binding.element))
-                            this.binding.element.style[this.binding.attr.split(".")[1]] = (function(){return eval(this.binding.value)}).call(this.binding.element);
+                    //value has changed
+                    /*
+                    if (JSON.stringify(eval(binding.value)) != binding.previousValue){
+                        //if (!binding.i){binding.i = 1;}
+
+                        binding.previousValue = JSON.stringify(eval(binding.value));
+                        document.querySelectorAll('[karbid-bindingid="'+binding.i+'"]').forEach(function(e,index){
+                                e.remove();
+                        })
+
+                        document.querySelectorAll("k-binding-endpos#k-bindingID-"+binding.i)
+
+                        document.querySelectorAll("k-binding-endpos#k-bindingID-"+binding.i).forEach(function(pos){
+                            karbid.render(binding.karbidCode,binding.element,{insertBefore:pos,ignoreBindings:true,overrideBinding:{id:binding.i}})
+                        })*/
                     }
-                }else{
-                    if(this.binding.element[this.binding.attr] != (function(){return eval(this.binding.value)}).call(this.binding.element))
-                    this.binding.element[this.binding.attr] = (function(){return eval(this.binding.value)}).call(this.binding.element);
+                
+                
+               else{ //attrbinding
+                    if(binding.attr.includes(".")){
+                        if (binding.attr.split(".")[0] == "style"){
+                            if(binding.element.style[binding.attr.split(".")[1]] != (function(){return eval(binding.value)}).call(binding.element))
+                                binding.element.style[binding.attr.split(".")[1]] = (function(){return eval(binding.value)}).call(binding.element);
+                        }
+                    }else{
+                        if(binding.element[binding.attr] != (function(){return eval(binding.value)}).call(binding.element))
+                        binding.element[binding.attr] = (function(){return eval(binding.value)}).call(binding.element);
+                    }
                 }
 
 
@@ -28,7 +58,7 @@ var karbid = {
             }
         },200)
     },
-    render: function(code,curelem){
+    render: function(code,curelem,options){
         var lines = code.split("\n");
         var inElements = [];
         var curElement={};
@@ -36,6 +66,19 @@ var karbid = {
         var pass = false;
         evalScript = false;
         evalScriptCode = "";
+
+        if (options==undefined){
+            options=karbid.options.RenderOptions
+        }
+
+        this.codeBetween=function(a,b){
+            var ret = "";
+            for(var u = a;u<=b;u++){
+                ret+=lines[u]+"\n";
+            }
+
+            return ret;
+        }
 
         if (curelem!=undefined){
             inElements.push({element:curelem,parent:{},elements:[],inLoop: false,queryElement:{}});
@@ -54,7 +97,6 @@ var karbid = {
         var loop = {};
 
         var binding = false;
-        var passLoop = false;
 
         var inRegion = false;
         var currentRegion = {}
@@ -81,6 +123,7 @@ var karbid = {
                 continue;
             }
 
+
             if(evalScript == true){
                 if(line.endsWith("endscript") == false)
                 evalScriptCode += line;
@@ -91,7 +134,9 @@ var karbid = {
                 inRegion = false;
                 currentRegion = ""
             }
-
+            if ((line.startsWith("endline") && line.endsWith("endline")) || (line.startsWith("endl") && line.endsWith("endl"))){
+                curElement.element.appendChild(document.createElement("br"));
+            }
             if (line.startsWith("region ")){
                 inRegion = true;
                 currentRegion = line.split("region ")[1]
@@ -116,12 +161,6 @@ var karbid = {
 
             //comment line with // or the line starts with #
             if (line.startsWith("#")) continue
-            var reg = /(^|[^\\])#.*/g;
-            if (line.match(reg) != null && line.match(reg).length>0){
-                line.match(reg).forEach(function(element){
-                    line = line.replace(element,"")
-                });
-            }
             
             //webrequest
             if(line.startsWith("request")){
@@ -154,7 +193,7 @@ var karbid = {
             }
 
             //binding
-            if (line.startsWith("!")){
+            if (line.startsWith("!") && options.ignoreBindings == false){
                 if(curAttribute == "" && curEvent == ""){
                     binding = true;
                     line = karbid.utils.replaceAt(line,0,""); //removing the !
@@ -183,14 +222,6 @@ var karbid = {
                     element.id = "elem_"+elementsCount;
                 }
 
-
-                //this should fix foreach loops' trying to render with empty arrays
-                if (element.loop != undefined && element.loop.type == "foreach" && element.loop.array.length==0){
-                    console.log(element)
-                    passLoop = true;
-                    continue;
-                }
-
                 //loop
                 if(curElement.inLoop == false && element.loop!=undefined){
                     //a loop that hasn't started yet
@@ -198,10 +229,27 @@ var karbid = {
                     curElement.loop = element.loop;
                     curElement.loop.startingLine = a;
                     curElement.loop.index = 0;
-                    curElement.loop.to=element.loop.to-1;
+
+                    curElement.loop.to=element.loop.to
+       
+                    
                     curElement.loop.name = element.loop.name;
                     curElement.inLoop = true;
                     curElement.loop.type = element.loop.type;
+                    if (curElement.loop.binding && options.ignoreBindings == false){
+                        //loop positioning
+                        curElement.loop.bindingData={
+                            previousValue:JSON.stringify(eval(element.loop.varAsString)),
+                            value:element.loop.varAsString,
+                            element:curElement.element,
+                            before:curElement.element.children[curElement.element.children.length-1],
+                            type:karbid.binder.BindingType.LOOPBINDING,
+                            i:karbid.binder.bindings.length +1
+                        };
+
+                        karbid.binder.bindings.push(curElement.loop.bindingData);
+                    }
+
                     if(element.loop.array.length>0){
                         curElement.element[element.loop.name]=element.loop.array[curElement.loop.index];
                     }else{
@@ -222,12 +270,21 @@ var karbid = {
                 if(curElement.inLoop){
                     //htmlElement.setAttribute(element.loop.name,curElement.element[element.loop.name]);
                     htmlElement[element.loop.name] = curElement.element[element.loop.name];
+                    
+                    if (curElement.loop.binding == true){ //specifying an unique id
+                        htmlElement.setAttribute("karbid-bindingid",options.overrideBinding?options.overrideBinding.id:karbid.binder.bindings.length);
+                    }
                 }
                 //if parent is in loop, we assign its value to this
+                //or should only assing its value
                 if (curElement.parent.loop != undefined || curElement.parent.parentInLoop){
-                        curElement.parent.parentInLoop=true;
-                        curElement.loop = curElement.parent.loop
+                        /*curElement.parent.parentInLoop=true;
+                        curElement.loop = curElement.parent.loop*/
                         htmlElement[curElement.parent.loop.name] = curElement.parent.element[curElement.parent.loop.name]
+                        
+                        /*if (curElement.loop.binding == true){
+                            htmlElement.setAttribute("karbid-bindingid",curElement.element.getAttribute("karbid-bindingid"));
+                        }*/
                 }
 
                 htmlElement.addEventListener("init",function(){
@@ -243,9 +300,24 @@ var karbid = {
                 element.attributes.forEach(function(attribute){
                     htmlElement[attribute.name] = (function(){return eval(attribute.value)}).call(htmlElement);
                 })
-                console.log(element)
 
-                curElement.element.appendChild(htmlElement);
+
+
+                if (element.loop == undefined || (element.loop.type == "foreach" && element.loop.array.length!=0) || (element.loop.type=="for" && element.loop.to-element.loop.index != 0)){
+                    if (options.insertBefore){
+                        options.insertBefore.parentElement.insertBefore(htmlElement,options.insertBefore);
+                        /*
+                        if (options.insertBefore.nextSibling) {
+                            curElement.element.insertBefore(htmlElement, options.insertBefore.nextSibling);
+                          }
+                          else {
+                            curElement.element.appendChild(htmlElement);
+                          }
+                          */
+                    }   
+                        else
+                    curElement.element.appendChild(htmlElement);
+                }
 
 
                 var objectElement = {element:htmlElement,parent:curElement,elements:[],inLoop:false,html:""};
@@ -273,19 +345,19 @@ var karbid = {
 
             //end of the code
             if(line.endsWith("}") && bracketCount == 0){
-                if (passLoop == true){
-                    passLoop = false;
-                    continue;
-                }
                 if(curAttribute == "" && curEvent == ""){
                     curElement.element.dispatchEvent(init);
                     var le = curElement;
+                    //returning back to parent
                     curElement = curElement.parent;
                     if(curElement.inLoop == true){
                         if(curElement.loop.endingLine==undefined){
                             curElement.loop.endingLine=a;
+                            if (curElement.loop.binding && options.ignoreBindings==false){
+                                curElement.loop.bindingData.karbidCode = this.codeBetween(curElement.loop.startingLine,curElement.loop.endingLine)
+                            }
                         }
-                        if(curElement.loop.index<curElement.loop.to){
+                        if(curElement.loop.index<curElement.loop.to-1){
                             curElement.loop.index++;
                             if(curElement.loop.type == "foreach"){
                                 le.element[curElement.loop.name]=curElement.loop.array[curElement.loop.index-1];
@@ -295,14 +367,19 @@ var karbid = {
                             a = curElement.loop.startingLine-1;
                         }else{
                             curElement.inLoop = false;
+
+                            if (options.ignoreBindings == false || Object.keys(le.parent).length != 0){
+                                var positioner = document.createElement("k-binding-endpos");
+                                positioner.id = "k-bindingID-"+(karbid.binder.bindings.length);
+                                curElement.element.appendChild(positioner);
+                            }
+
                         }
                     }
 
                 }
 
             }
-
-            if (passLoop) continue;
 
 
             if(curAttribute!=""){
@@ -443,46 +520,54 @@ var karbid = {
                 if(line.startsWith("style:")){
                     curAttribute = "style";
                 }
-                if(line.startsWith("value:")){
-                    curAttribute = "value";
-                    attrValue = line.substr(curAttribute.length+1);
-                    curElement.element.setAttribute(curAttribute,(function(){return eval(attrValue)}).call(curElement.element));
-                    curAttribute = "";
-                    attrValue = "";
-
-                }
                 if(line.startsWith("stylejs")){
                     curAttribute = "stylejs";
                 }
-                if(line.startsWith("type:")){
-                    curAttribute="type";
-                    if(!line.startsWith("type:{")){
-                        attrValue = line.substr(curAttribute.length+1);
-                        curElement.element.setAttribute(curAttribute,(function(){return eval(attrValue)}).call(curElement.element));
-                        curAttribute = "";
-                        attrValue = "";
-                    }
-                }
-                if(line.startsWith("placeholder:")){
+                /*if(line.startsWith("placeholder:")){
                     curAttribute = "placeholder";
                     if(!line.startsWith("placeholder:{")){
                         attrValue = line.substr(curAttribute.length+1);
                         curElement.element.setAttribute(curAttribute,(function(){return eval(attrValue)}).call(curElement.element));
 
                         if (binding){
-                            karbid.binder.bindings.push({element:curElement.element,attr:curAttribute,value:attrValue})
+                            karbid.binder.bindings.push({element:curElement.element,attr:curAttribute,value:attrValue,type:karbid.binder.BindingType.ATTRBINDING})
                             binding = false;
                         }
 
                         curAttribute = "";
                         attrValue = "";
+                    }
+                }*/
 
-
+                //#region Predefined events
+                for(var pdei = 0;pdei<karbid.options.Predefined.Events.length;pdei++){
+                    var pde = karbid.options.Predefined.Events[pdei];
+                    if (line.startsWith(pde.karbidName+":")){
+                        curEvent = pde.eventName;
+                        break;
                     }
                 }
-                if(line.startsWith("click:")){
-                    curEvent = "click";
+                //#endregion
+                //#region Predefiend attributes
+                for(var pdattri = 0;pdattri<karbid.options.Predefined.Attributes.length;pdattri++){
+                    var pdattr = karbid.options.Predefined.Attributes[pdattri];
+                    if (line.startsWith(pdattr.karbidName+":")){
+                        //nested attribute
+                        if (pdattr.attribute.split(".").length > 1){
+                            curElement.element[pdattr.attribute.split(".")[0]][pdattr.attribute.split(".")[1]] = (function(){return eval(line.split(pdattr.karbidName+":")[1])}).call(curElement.element);
+                        }else{//not nested
+                            curElement.element[pdattr.attribute] = (function(){return eval(line.split(pdattr.karbidName+":")[1])}).call(curElement.element);
+                        }
+
+                        if (binding){
+                            karbid.binder.bindings.push({element:curElement.element,attr:pdattr.attribute,value:line.split(pdattr.karbidName+":")[1]})
+                            binding = false;
+                        }
+                        break;
+                    }
                 }
+                //#endregion
+                /*
                 if(line.startsWith("width:")){
                     curElement.element.style["width"] = (function(){return eval(line.split("width:")[1])}).call(curElement.element);
 
@@ -527,12 +612,9 @@ var karbid = {
                         binding = false;
                     }
 
-                }
-                if(line.startsWith("input:")){
-                    curEvent = "input";
-                }
+                }*/
                 //#endregion
-
+                
             }
         }
     },
@@ -574,6 +656,7 @@ var karbid = {
                     array = to;
                     to=array.length;
                     type = "foreach";
+                    
                 }else{
                     type="for";
                 }
@@ -585,15 +668,15 @@ var karbid = {
                     to:to,
                     array:array,
                     index:0,
-                    binding:true
+                    binding:query.split("(")[0].endsWith("!"),
+                    varAsString:karbid.utils.replaceAt(query.substr(query.indexOf(":")+1),query.substr(query.indexOf(":")+1).length-1,"")
                 }
-                query = query.split(":")[0].split("(")[0];
+                query = query.split(":")[0].split(element.loop.binding? "!":"(")[0];
             }
 
             var splitter = "";
             curAttr = {name:"",value:""};
             for(var i=0;i<query.length;i++){
-
                 // if we are not editing the attributes, then converter can look for  id and classnames
                 if (splitter!="=" && splitter != "["){
                     if(query[i] == "#") splitter = "#";
@@ -624,10 +707,6 @@ var karbid = {
                     element.attributes[element.attributes.length-1].value += query[i];
                 }
                 if (splitter == "]" || splitter==","){
-                    /*console.log(curAttr)
-                    element.attributes[element.attributes.length-1].name = karbid.utils.replaceAt(curAttr.name,0,"");
-                    element.attributes[element.attributes.length-1].value = karbid.utils.replaceAt(curAttr.value,0,"");
-                    */
                     if (splitter ==",") splitter = "["; 
                 }
             }
@@ -655,6 +734,33 @@ var karbid = {
                 xmlHttp.open("POST", theUrl, false);
                 xmlHttp.send(null);
             }
+        }
+    },
+    options:{
+        Predefined:{
+            Events:[
+                {karbidName:"click",eventName:"click"},
+                {karbidName:"input",eventName:"input"}
+            ],
+            Attributes:[
+                {karbidName:"border",attribute:"style.border"},
+                {karbidName:"width",attribute:"style.width"},
+                {karbidName:"height",attribute:"style.height"},
+                {karbidName:"padding",attribute:"style.padding"},
+                {karbidName:"margin",attribute:"style.margin"},
+                {karbidName:"color",attribute:"style.color"},
+                {karbidName:"backgroundColor",attribute:"style.backgroundColor"},
+                {karbidName:"display",attribute:"style.display"},
+                {karbidName:"fontSize",attribute:"style.fontSize"},
+                {karbidName:"border",attribute:"style.border"},
+                {karbidName:"value",attribute:"value"},
+                {karbidName:"val",attribute:"value"},
+                {karbidName:"placeholder",attribute:"placeholder"},
+                {karbidName:"type",attribute:"type"}
+            ]
+        },
+        RenderOptions:{
+            ignoreBindings:false
         }
     }
 }
