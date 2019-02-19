@@ -10,9 +10,7 @@ var karbid = {
         this.BindingType = {ATTRBINDING:0,LOOPBINDING:1}
         this.duration = 50;
         this.bindings = [];
-        this.interval = setInterval(()=>{
-            var hebele = 0;
-            
+        this.interval = setInterval(()=>{            
             for(var i = 0;i<karbid.binder.bindings.length;i++){
                 var binding = karbid.binder.bindings[i];
                 if (binding.type == karbid.binder.BindingType.LOOPBINDING){
@@ -296,13 +294,13 @@ var karbid = {
                 });
 
                 //adding attributes
-
                 element.attributes.forEach(function(attribute){
+                    if (htmlElement[attribute.name] == undefined)
+                        htmlElement.setAttribute(attribute.name, (function(){return eval(attribute.value)}).call(htmlElement))
                     htmlElement[attribute.name] = (function(){return eval(attribute.value)}).call(htmlElement);
                 })
 
-
-
+                
                 if (element.loop == undefined || (element.loop.type == "foreach" && element.loop.array.length!=0) || (element.loop.type=="for" && element.loop.to-element.loop.index != 0)){
                     if (options.insertBefore){
                         options.insertBefore.parentElement.insertBefore(htmlElement,options.insertBefore);
@@ -315,8 +313,11 @@ var karbid = {
                           }
                           */
                     }   
-                        else
-                    curElement.element.appendChild(htmlElement);
+                    else if (curElement.element.tagName.toLowerCase() == "head"){
+                        document.querySelector("head").appendChild(htmlElement)
+                    }
+                    else if (element.tag != "head")
+                        curElement.element.appendChild(htmlElement);
                 }
 
 
