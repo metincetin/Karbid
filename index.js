@@ -1,15 +1,12 @@
 var fs = require('fs')
 exports.options = {
-	head:`
-	<meta charset="utf8">
-	`,
-	jsPath:__dirname+"/src/karbid.min.js",
+	jsPath:__dirname+"/src/karbid.js",
 	vars: "window"
 }
 
 exports.render = function(code,data){
 	return  `
-		<head>${this.options.head}<!--karbid--><script>${fs.readFileSync(this.options.jsPath)}</script></head>
+		<head><!--karbid--><script>${fs.readFileSync(this.options.jsPath)}</script></head>
 		<body></body>
 		<script>
 			var p =
