@@ -345,13 +345,19 @@ var karbid = {
 
 
             //end of the code
-            if(line.endsWith("}") && bracketCount == 0){
+            if(line.startsWith("}") && bracketCount == 0){
                 if(curAttribute == "" && curEvent == ""){
                     curElement.element.dispatchEvent(init);
                     var le = curElement;
                     //returning back to parent
                     curElement = curElement.parent;
                     if(curElement.inLoop == true){
+						
+						//fallback
+						if (line.includes("=>") && curElement.loop.to == 0){							
+							lines.splice(a+1,0,line.split("=>")[1]);
+						}
+						
                         if(curElement.loop.endingLine==undefined){
                             curElement.loop.endingLine=a;
                             if (curElement.loop.binding && options.ignoreBindings==false){
@@ -450,8 +456,18 @@ var karbid = {
                     attrValue = "";
 
                 }
-            }
+            }else if(line.startsWith("text:")){
+                if (curAttribute=="" && curEvent == ""){
+                    attrValue = line.split("text:")[1];
 
+                    if (binding){
+                        karbid.binder.bindings.push({element:curElement.element,attr:"innerHTML",value:attrValue})
+                        binding = false;
+                    }
+                    attrValue = "";
+
+                }
+            }
 
 
             if(curEvent!=""){
@@ -487,16 +503,18 @@ var karbid = {
                     conditions.push({code:"",condition:!con});
                 }
 
-                if (line.startsWith("\"") || line.startsWith("html")){
+                if (line.startsWith("\"") || line.startsWith("html") || line.startsWith("text:")){
                     if(line.startsWith("\"")){
                         line = karbid.utils.replaceAt(line,0,"");
                         line = karbid.utils.replaceAt(line,line.length-1,"");
                         curElement.element.innerHTML = line;
-                    }else{
+                    }else if (line.startsWith("html")){
                         curElement.html =  line.split("html")[1].substr(line.split("html")[1].indexOf(":")+1);
                         curElement.htmlBefore = curElement.elements.length;
-
-                    }
+                    }else{
+						curElement.html =  line.split("text")[1].substr(line.split("text")[1].indexOf(":")+1);
+                        curElement.htmlBefore = curElement.elements.length;
+					}
                 }
 
                 //script
