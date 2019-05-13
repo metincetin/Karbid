@@ -104,7 +104,7 @@ var karbid = {
 		var conditions = [{condition:true}];
 		var conditionIndex=0;
 
-		var currentQueryTree = {};
+		var queryTree;
 		if (inElements.length == 0){
 			inElements.push({element:document.body,parent:{},elements:[],inLoop: false,html:"",queryElement:{}});
 			curElement = inElements[0];
@@ -202,7 +202,7 @@ var karbid = {
 				}
 			}
 
-
+			//#region element
 			if(line[0]=="@" && curAttribute == "" &&curEvent == ""){
 				//this is an element
 				line = line.replace("@","");
@@ -217,10 +217,9 @@ var karbid = {
 
 
 				var element = karbid.utils.queryConverter(line);
-				var queryTree = karbid.utils.toQueryTree(element);
-				if (queryTree.requiredClosings>1){
-					currentQueryTree = queryTree;
-					for(this.lsp = 0;this.lsp<currentQueryTree.lines.length;this.lsp++)
+				if (karbid.utils.toQueryTree(element)!=undefined){
+					queryTree = karbid.utils.toQueryTree(element);
+					for(this.lsp = 0;this.lsp<queryTree.lines.length;this.lsp++)
 						lines.splice(a+1+this.lsp,0,"\n"+queryTree.lines[this.lsp]);
 					continue;
 				}
@@ -339,7 +338,8 @@ var karbid = {
 
 				curElement = objectElement;
 				curElement.queryElement = element;
-
+				curElement.queryTree = queryTree;
+				
 				elementsCount++;
 
 				karbid.elements[element.id]=htmlElement;
@@ -354,16 +354,17 @@ var karbid = {
 				}
 
 
-			}
+			}//#endregion element
 
 
 			//end of the code
 			if(line.startsWith("}") && bracketCount == 0){
 				if(curAttribute == "" && curEvent == ""){
 					//add required brackets
-					for(;currentQueryTree.requiredClosings>1;currentQueryTree.requiredClosings--){
-						lines.splice(a+1,0,"\n}\n");
-					}
+					if (curElement.queryTree!=undefined)
+						for(;curElement.queryTree.requiredClosings>1;curElement.queryTree.requiredClosings--){
+							lines.splice(a+1,0,"\n}\n");
+						}
 					curElement.element.dispatchEvent(init);
 					var le = curElement;
 					//returning back to parent
@@ -652,7 +653,7 @@ var karbid = {
 				//#endregion
 				
 			}
-		console.log(lines.join());
+		
 		}
 	},
 	utils:{
@@ -689,7 +690,7 @@ var karbid = {
 				attributes = karbid.utils.replaceAt(attributes,attributes.length-1,"");
 				attributes +="]";
 			}
-			console.log(element.attributes);
+			
 			if (element.loop){
 				loop = "("+element.loop.name+":"+element.loop.targetString+")";
 			}
@@ -704,6 +705,8 @@ var karbid = {
 				elements.push(p);
 				p = p.parent;
 			}
+			if (ret.length == 1)
+				return undefined;
 			return {lines:ret.reverse(),elements:elements,requiredClosings:ret.length};
 		},
 		queryConverter: function(query) {
@@ -745,7 +748,7 @@ var karbid = {
 					q = q.split("(")[0];
 					if (element.loop.binding)
 						q = q.split("!")[0]
-					console.log(q);
+					
 				}
 
 				var splitter = "";
@@ -857,3 +860,4 @@ var karbid = {
 var init = new Event("init");
 
 karbid.binder = new karbid.binder()
+
