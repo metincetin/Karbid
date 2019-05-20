@@ -62,7 +62,7 @@ var karbid = {
 	render: function(code,curelem,options){
 		var lines = code.split("\n");
 		var inElements = [];
-		var curElement={};
+		var curElement={passedValues:[]};
 
 		var pass = false;
 		evalScript = false;
@@ -82,7 +82,7 @@ var karbid = {
 		}
 
 		if (curelem!=undefined){
-			inElements.push({element:curelem,parent:{},elements:[],inLoop: false,queryElement:{}});
+			inElements.push({element:curelem,parent:{},elements:[],inLoop: false,queryElement:{},passedValues:[]});
 			curElement = inElements[0];
 		}
 		elementsCount = 100;
@@ -106,7 +106,7 @@ var karbid = {
 
 		var queryTree;
 		if (inElements.length == 0){
-			inElements.push({element:document.body,parent:{},elements:[],inLoop: false,html:"",queryElement:{}});
+			inElements.push({element:document.body,parent:{},elements:[],inLoop: false,html:"",queryElement:{},passedValues:[]});
 			curElement = inElements[0];
 		}
 		for (var a=0;a<lines.length;a++){
@@ -215,7 +215,6 @@ var karbid = {
 				}
 
 
-
 				var element = karbid.utils.queryConverter(line);
 				if (karbid.utils.toQueryTree(element)!=undefined){
 					queryTree = karbid.utils.toQueryTree(element);
@@ -277,8 +276,11 @@ var karbid = {
 				//create the element
 				htmlElement = document.createElement(element.tag);
 
+
+				//if inloop, pass loopvalue
 				if(curElement.inLoop){
 					//htmlElement.setAttribute(element.loop.name,curElement.element[element.loop.name]);
+					curElement.passedValues.push({name:element.loop.name,value:curElement.element[element.loop.name]})
 					htmlElement[element.loop.name] = curElement.element[element.loop.name];
 					
 					if (curElement.loop.binding == true){ //specifying an unique id
@@ -287,15 +289,21 @@ var karbid = {
 				}
 				//if parent is in loop, we assign its value to this
 				//or should only assing its value
-				if (curElement.parent.loop != undefined || curElement.parent.parentInLoop){
-						/*curElement.parent.parentInLoop=true;
-						curElement.loop = curElement.parent.loop*/
-						htmlElement[curElement.parent.loop.name] = curElement.parent.element[curElement.parent.loop.name]
-						
-						/*if (curElement.loop.binding == true){
-							htmlElement.setAttribute("karbid-bindingid",curElement.element.getAttribute("karbid-bindingid"));
-						}*/
-				}
+				//keep track of the array values via passedValues
+				
+				/*curElement.parent.parentInLoop=true;
+				curElement.loop = curElement.parent.loop*/
+				if(curElement.parent.passedValues!=undefined)
+				curElement.parent.passedValues.forEach(function(e){
+					curElement.passedValues.push(e);
+					htmlElement[e.name]=e.value;
+				})
+				//htmlElement[curElement.parent.loop.name] = curElement.parent.element[curElement.parent.loop.name]
+				
+				/*if (curElement.loop.binding == true){
+					htmlElement.setAttribute("karbid-bindingid",curElement.element.getAttribute("karbid-bindingid"));
+				}*/
+				
 
 				htmlElement.addEventListener("init",function(){
 					if(curElement.html != ""){
@@ -333,7 +341,7 @@ var karbid = {
 				}
 
 
-				var objectElement = {element:htmlElement,parent:curElement,elements:[],inLoop:false,html:""};
+				var objectElement = {element:htmlElement,parent:curElement,elements:[],inLoop:false,passedValues:[],html:""};
 				curElement.elements.push(objectElement);
 
 				curElement = objectElement;
@@ -367,6 +375,7 @@ var karbid = {
 						}
 					curElement.element.dispatchEvent(init);
 					var le = curElement;
+
 					//returning back to parent
 					curElement = curElement.parent;
 					if(curElement.inLoop == true){
@@ -386,8 +395,11 @@ var karbid = {
 							curElement.loop.index++;
 							if(curElement.loop.type == "foreach"){
 								le.element[curElement.loop.name]=curElement.loop.array[curElement.loop.index-1];
+								//le.passedValues.push({name:curElement.loop.name,value:curElement.loop.array[curElement.loop.index-1]})
 							}else{
 								le.element[curElement.loop.name] = curElement.loop.index-1;
+								
+								//le.passedValues.push({name:curElement.loop.name,value:curElement.loop.index-1});
 							}
 							a = curElement.loop.startingLine-1;
 						}else{
